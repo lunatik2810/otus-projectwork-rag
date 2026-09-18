@@ -1,0 +1,10 @@
+{
+  "inputs": [],
+  "servers": {
+    "otus-projectwork-rag": {
+      "type": "http",
+      "url": "http://localhost:6543",
+      "headers": {}
+    }
+  }
+}
