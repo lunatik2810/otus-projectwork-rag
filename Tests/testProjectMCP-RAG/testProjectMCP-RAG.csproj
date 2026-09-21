@@ -6,20 +6,41 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!--
+      xunit.v3 требует исполняемый тестовый проект (раннер генерирует точку входа):
+      OutputType=Exe и app host задаём явно (после отказа от Microsoft.NET.Test.Sdk).
+    -->
+    <OutputType>Exe</OutputType>
+    <UseAppHost>true</UseAppHost>
+    <!--
+      xunit.v3 исполняется на Microsoft Testing Platform (MTP): режим dotnet test
+      задаётся в global.json ("test.runner": "Microsoft.Testing.Platform").
+      UseMicrosoftTestingPlatformRunner=true переключает сгенерированную точку входа
+      xunit.v3 с in-process консольного раннера на MTP-раннер (иначе dotnet test
+      получает код выхода 5 «ноль тестов»).
+    -->
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="6.0.4" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <!--
+      Чистый MTP-набор (dotnet test в MTP-режиме, global.json):
+      НЕ добавляем Microsoft.NET.Test.Sdk и VSTest-адаптеры/коллекторы —
+      смешение VSTest и MTP в одном проекте официально не поддерживается
+      и ломает запуск модуля (код выхода 5).
+    -->
+    <PackageReference Include="Microsoft.Testing.Platform" Version="2.4.0" />
     <PackageReference Include="xunit.v3" Version="4.0.1" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
+  </ItemGroup>
+
+  <!-- Ссылка на основной проект: тестируем реальные инструменты и MediatR-цепочку. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\otus-projectwork-rag.csproj" />
   </ItemGroup>
 
 </Project>

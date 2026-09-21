@@ -8,19 +8,27 @@
     <UserSecretsId>f9f7cd85-8ee7-4d06-a491-aa9a0ccb4aeb</UserSecretsId>
 
 
-    <!-- Set up the MCP server to be a self-contained application that does not rely on a shared framework -->
-    <SelfContained>true</SelfContained>
-    <PublishSelfContained>true</PublishSelfContained>
-
-    <!-- Set up the MCP server to be a single file executable -->
-    <PublishSingleFile>true</PublishSingleFile>
+    <!--
+      Self-contained single-file публикация выполняется параметрами dotnet publish:
+        dotnet publish -p:SelfContained=true -p:PublishSingleFile=true
+      В csproj эти свойства не задаются: иначе проект нельзя подключить из тестовой
+      сборки (NETSDK1151 — неавтономный проект не может ссылаться на автономный exe).
+    -->
 
     <!--
       Извлекает native-библиотеки (ONNX Runtime) в отдельные файлы при запуске,
       иначе single-file публикация не сможет загрузить onnxruntime в рантайме.
+      Учитывается только при single-file публикации.
     -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <Platforms>AnyCPU;x64</Platforms>
+
+    <!--
+      exe-проекты по умолчанию не создают ref-сборку (obj\<config>\<tfm>\ref\),
+      из-за чего тестовый проект не находит метаданные для компиляции против
+      основных типов. Включаем генерацию явно.
+    -->
+    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,6 +36,18 @@
     <Content Remove="DataBaseRAG\**" />
     <EmbeddedResource Remove="DataBaseRAG\**" />
     <None Remove="DataBaseRAG\**" />
+  </ItemGroup>
+
+  <!--
+    Default-глоб **/*.cs захватывает и тестовый проект (исходники + сгенерированные
+    файлы из его obj/bin): иначе основной проект компилирует их вместе со своими
+    типами (дубли атрибутов сборки, неизвестные Fact/Microsoft.Testing).
+  -->
+  <ItemGroup>
+    <Compile Remove="Tests\**" />
+    <Content Remove="Tests\**" />
+    <EmbeddedResource Remove="Tests\**" />
+    <None Remove="Tests\**" />
   </ItemGroup>
 
   <ItemGroup>
