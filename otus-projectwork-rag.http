@@ -1,7 +1,10 @@
-# For more info on HTTP files go to https://aka.ms/vs/httpfile
+# Для тестирования MCP-инструментов RAG-сервера.
+# Сначала запустите сервер: dotnet run --launch-profile http
+# Затем отправляйте запросы через кнопку "Send Request".
 
-@HostAddress = https://localhost:5268
+@HostAddress = http://localhost:6543
 
+### index_status — статистика базы знаний
 POST {{HostAddress}}/
 Accept: application/json, text/event-stream
 Content-Type: application/json
@@ -12,6 +15,62 @@ MCP-Protocol-Version: 2025-11-25
     "id": 1,
     "method": "tools/call",
     "params": {
-        "name": "get_random_number"
+        "name": "index_status"
+    }
+}
+
+### index_folder — индексация папки с документами
+POST {{HostAddress}}/
+Accept: application/json, text/event-stream
+Content-Type: application/json
+MCP-Protocol-Version: 2025-11-25
+
+{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+        "name": "index_folder",
+        "arguments": {
+            "folderPath": "Resources/DataBaseRAG",
+            "globPattern": "*.txt"
+        }
+    }
+}
+
+### find_relevant_docs — гибридный поиск без LLM
+POST {{HostAddress}}/
+Accept: application/json, text/event-stream
+Content-Type: application/json
+MCP-Protocol-Version: 2025-11-25
+
+{
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": {
+        "name": "find_relevant_docs",
+        "arguments": {
+            "query": "Какое образование у Владислава Миронова?",
+            "topK": 5
+        }
+    }
+}
+
+### ask_question — полный Corrective RAG-цикл (нужна запущенная Ollama)
+POST {{HostAddress}}/
+Accept: application/json, text/event-stream
+Content-Type: application/json
+MCP-Protocol-Version: 2025-11-25
+
+{
+    "jsonrpc": "2.0",
+    "id": 4,
+    "method": "tools/call",
+    "params": {
+        "name": "ask_question",
+        "arguments": {
+            "question": "Какие хобби у человека из досье?"
+        }
     }
 }

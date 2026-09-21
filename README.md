@@ -1,56 +1,141 @@
-# MCP Server
+# MCP-сервер Corrective RAG на базе SQLite + multilingual-e5-small + Ollama
 
-This README was created using the C# MCP server project template.
-It demonstrates how you can easily create an MCP server using C# and run it as an ASP.NET Core web application.
+MCP-сервер, который превращает локальную папку с документами в поисковую базу знаний.
+Разработчик подключает сервер к IDE (Copilot, Claude и др.), индексирует документы и задаёт
+вопросы — AI в IDE получает ответы, основанные на содержимом файлов.
 
-The MCP server is built as a self-contained application and does not require the .NET runtime to be installed on the target machine.
-However, since it is self-contained, it must be built for each target platform separately.
-By default, the template is configured to build for:
-* `win-x64`
-* `win-arm64`
-* `osx-arm64`
-* `linux-x64`
-* `linux-arm64`
-* `linux-musl-x64`
+Внутри сервера — **Corrective RAG-пайплайн** с локальной LLM через **Ollama**
+(без платных API) и векторными эмбеддингами **multilingual-e5-small** (ONNX, 384 измерения).
 
-If you require more platforms to be supported, update the list of runtime identifiers in the project's `<RuntimeIdentifiers />` element.
+## Возможности
 
-## Developing locally
+- **Индексация папки**: файлы делятся на чанки (480 токенов, перекрытие 20), каждый чанк
+  превращается в вектор (mean pooling + L2), всё сохраняется в SQLite (`vectorDb.db`)
+  вместе с полнотекстовым индексом FTS5 (BM25). Неизменённые файлы пропускаются по SHA-256,
+  изменённые — переиндексируются полностью.
+- **Гибридный поиск**: BM25 (точные слова) + векторная близость (смысл) → объединение
+  через Reciprocal Rank Fusion (RRF, k=60) → топ-10.
+- **Grade Chunks (Corrective RAG)**: локальная LLM оценивает релевантность найденных
+  фрагментов (yes/no); если релевантных мало — запрос расширяется и поиск повторяется
+  (до 2 раз). Финальный ответ формулирует **агент-хост** в IDE: сервер возвращает
+  JSON с фрагментами и метаданными (файл, id чанка, оценки близости).
+- **Работает на Windows и Linux** (в том числе в Docker-контейнере).
 
-To test this MCP server from source code (locally), you can configure your IDE to connect to the server using localhost.
+## MCP-инструменты
+
+| Инструмент | Вход | Что делает |
+|---|---|---|
+| `index_folder` | `folderPath`, `globPattern` (`*.txt`) | Сканирует папку, чанкирует, строит эмбеддинги, сохраняет в БД; неизменённые файлы пропускает |
+| `ask_question` | `question` | Полный Corrective RAG-цикл: гибридный поиск → грейдинг Ollama → при нехватке релевантных — расширение запроса (до 2 раз) → отобранные чанки агенту |
+| `find_relevant_docs` | `query`, `topK` (10) | Ранжированные чанки без генерации ответа (BM25 + вектор → RRF), без LLM |
+| `index_status` | — | Статистика: документы, чанки, векторы, время последней индексации |
+
+Ответы возвращаются в JSON: для каждого чанка — текст, имя файла, путь, `chunkId`,
+`documentId`, оценки `vectorScore`, `bm25Score`, `rrfScore`.
+
+## Структура проекта
+
+```
+Contracts/            DTO результатов (IndexFolderResult, SearchResult, AskQuestionResult, ...)
+Domain/               Сущности: Document, Chunk, Embedding
+Configuration/        Классы опций (секции appsettings.json)
+Infrastructure/
+  Data/               SqliteConnectionFactory, SchemaInitializer, репозитории
+  Text/               TextFileReader (кодировки), TextChunker, FileScanner
+  Embeddings/         TokenizerProvider, E5SmallEmbedder (ONNX)
+  Search/             VectorSearchService, Bm25 (FtsRepository), RrfFusion, HybridSearchService
+  Ollama/             OllamaClient (OpenAI-совместимый /v1/chat/completions)
+  Rag/                ChunkGrader, QueryExpander, CorrectiveRagPipeline
+Features/             MediatR: Request + Handler рядом (IndexFolder, FindRelevantDocs, AskQuestion, IndexStatus)
+Tools/                RagTools — 4 MCP-инструмента ([McpServerTool])
+plans/                План работ
+```
+
+## Конфигурация
+
+Все настройки — в [appsettings.json](appsettings.json) и переопределяются переменными
+окружения `Section__Key`:
+
+| Переменная | Значение по умолчанию | Назначение |
+|---|---|---|
+| `Database__Path` | `Resources/vectorDb.db` | Путь к файлу SQLite-базы |
+| `Ollama__BaseUrl` | `http://localhost:11434/v1` | OpenAI-совместимый API Ollama |
+| `Ollama__Model` | `qwen2.5:3b` | Модель грейдинга/расширения запроса |
+| `Embedding__ModelDirectory` | `Resources/multilingual-e5-small` | Каталог ONNX-модели и токенизатора |
+| `Chunking__MaxTokens` | `480` | Максимум токенов в чанке |
+| `Chunking__OverlapTokens` | `20` | Перекрытие между чанками |
+| `Retrieval__MinRelevant` | `3` | Порог релевантных чанков для остановки цикла |
+| `Retrieval__MaxExpansions` | `2` | Максимум расширений запроса |
+| `Serilog__MinimumLevel__Default` | `Information` | Уровень логирования |
+
+## Запуск (локально)
+
+Требуется .NET 10 SDK и запущенная [Ollama](https://ollama.com/) с моделью
+(`ollama pull qwen2.5:3b`).
+
+```bash
+dotnet run --launch-profile http
+```
+
+Сервер слушает `http://localhost:6543`. Примеры вызовов инструментов — в
+[otus-projectwork-rag.http](otus-projectwork-rag.http).
+
+Подключение из VS Code:
 
 ```json
 {
   "servers": {
     "otus-projectwork-rag": {
       "type": "http",
-      "url": "https://localhost:5268"
+      "url": "http://localhost:6543"
     }
   }
 }
 ```
 
-Refer to the VS Code or Visual Studio documentation for more information on configuring and using MCP servers:
+## Docker
 
-- [Use MCP servers in VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
-- [Use MCP servers in Visual Studio](https://learn.microsoft.com/visualstudio/ide/mcp-servers)
+Сервер рассчитан на запуск в контейнере: конфигурация передаётся переменными окружения,
+папка документов и БД монтируются томами. Ключевой момент — **Ollama на хосте**, поэтому
+внутри контейнера используйте `http://host.docker.internal:11434/v1` (на Linux добавьте
+`extra_hosts: ["host.docker.internal:host-gateway"]`).
 
-## Testing the MCP Server
+Пример `docker-compose.yml` (полный вариант — в плане
+[plans/01-rag-mcp-plan.md](plans/01-rag-mcp-plan.md#6-развёртывание-в-docker)):
 
-Once configured, you can ask Copilot Chat for a random number, for example, `Give me 3 random numbers`. It should prompt you to use the `get_random_number` tool on the `otus-projectwork-rag` MCP server and show you the results.
+```yaml
+services:
+  rag-mcp:
+    build: .
+    ports:
+      - "6543:8080"
+    environment:
+      ASPNETCORE_URLS: "http://+:8080"
+      Ollama__BaseUrl: "http://host.docker.internal:11434/v1"
+      Ollama__Model: "qwen2.5:3b"
+      Database__Path: "/data/vectorDb.db"
+      Indexing__DefaultGlob: "*.txt"
+    volumes:
+      - ./data:/data
+      - ./docs:/docs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+```
 
-## Known issues
+## Документация и память
 
-1. When using VS Code, connecting to `https://localhost:5268` fails.
-  * This is related to using a self-signed developer certificate, even when the certificate is trusted by the system.
-  * Connecting with `http://localhost:6132` succeeds.
-  * See [Cannot connect to MCP server via SSE using trusted developer certificate (microsoft/vscode#248170)](https://github.com/microsoft/vscode/issues/248170) for more information.
+- **План работ**: [plans/01-rag-mcp-plan.md](plans/01-rag-mcp-plan.md)
+- **Память проекта (для агентов)**: [.agents/memory-bank](.agents/memory-bank)
+  - [01-project-brief.md](.agents/memory-bank/01-project-brief.md) — сводка проекта
+  - [02-architecture.md](.agents/memory-bank/02-architecture.md) — архитектура и БД
+  - [03-progress.md](.agents/memory-bank/03-progress.md) — статус работ
+- **Скилы**: [.agents/skills](.agents/skills) — mcp-csharp, aspnet/dotnet-webapi и др.
+- **Материалы для преподавателя**: [ForTeachers/report.md](ForTeachers/report.md),
+  [ForTeachers/Prompts](ForTeachers/Prompts)
 
-## More information
+## Официальные материалы по MCP
 
-ASP.NET Core MCP servers use the [ModelContextProtocol.AspNetCore](https://www.nuget.org/packages/ModelContextProtocol.AspNetCore) package from the MCP C# SDK. For more information about MCP:
-
-- [Official Documentation](https://modelcontextprotocol.io/)
-- [Protocol Specification](https://spec.modelcontextprotocol.io/)
-- [GitHub Organization](https://github.com/modelcontextprotocol)
-- [MCP C# SDK](https://csharp.sdk.modelcontextprotocol.io/)
+- [C# MCP SDK](https://csharp.sdk.modelcontextprotocol.io/)
+- [ModelContextProtocol.AspNetCore](https://www.nuget.org/packages/ModelContextProtocol.AspNetCore)
+- [Документация MCP](https://modelcontextprotocol.io/)
+- [Использование MCP в VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
