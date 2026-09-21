@@ -1,3 +1,10 @@
 <Solution>
-  <Project Path="otus-projectwork-rag.csproj" />
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+  </Configurations>
+  <Project Path="otus-projectwork-rag.csproj">
+    <Platform Solution="Release|x64" Project="x64" />
+  </Project>
+  <Project Path="Tests/TestProjectMCP-RAG/TestProjectMCP-RAG.csproj" DisplayName="testProjectMCP-RAG" Id="72383df5-0f2e-4692-9db3-e8da44f16938" />
 </Solution>

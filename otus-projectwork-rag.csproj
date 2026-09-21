@@ -20,6 +20,7 @@
       иначе single-file публикация не сможет загрузить onnxruntime в рантайме.
     -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>

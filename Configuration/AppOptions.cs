@@ -39,7 +39,7 @@ public sealed class ChunkingOptions
     public const string SectionName = "Chunking";
 
     /// <summary>Максимальное число токенов в одном чанке.</summary>
-    public int MaxTokens { get; init; } = 480;
+    public int MaxTokens { get; init; } = 470;
 
     /// <summary>Перекрытие между соседними чанками (в токенах).</summary>
     public int OverlapTokens { get; init; } = 20;
