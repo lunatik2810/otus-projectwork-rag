@@ -47,6 +47,7 @@ Generated\ Files/
 # MSTest test Results
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
+Tests/testProjectMCP-RAG/.rag-test-tmp/
 
 # NUnit
 *.VisualState.xml
