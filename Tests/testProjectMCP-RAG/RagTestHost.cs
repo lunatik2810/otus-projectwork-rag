@@ -9,6 +9,8 @@ using OtusProjectworkRag.Infrastructure.Data;
 using OtusProjectworkRag.Infrastructure.Data.Repositories;
 using OtusProjectworkRag.Infrastructure.Embeddings;
 using OtusProjectworkRag.Infrastructure.Indexing;
+using OtusProjectworkRag.Infrastructure.Ollama;
+using OtusProjectworkRag.Infrastructure.Rag;
 using OtusProjectworkRag.Infrastructure.Search;
 using OtusProjectworkRag.Infrastructure.Text;
 using OtusProjectworkRag.Tools;
@@ -16,14 +18,15 @@ using OtusProjectworkRag.Tools;
 namespace testProjectMCP_RAG;
 
 /// <summary>
-/// Тестовый хост для проверки цепочки индексации БЕЗ MCP-сервера.
-/// Собирает DI-контейнер (зеркало Program.cs: только части, нужные для индексации),
-/// копирует документы из Resources/DataBaseRAG тестового проекта во временную папку
-/// и создаёт отдельную временную базу данных — рабочая Resources/vectorDb.db
-/// не затрагивается.
+/// Тестовый хост для проверки цепочек индексации, поиска и Corrective RAG
+/// БЕЗ MCP-сервера. Собирает DI-контейнер (зеркало Program.cs), копирует документы
+/// из Resources/DataBaseRAG тестового проекта во временную папку и создаёт отдельную
+/// временную базу данных — рабочая Resources/vectorDb.db не затрагивается.
 ///
 /// Каждый тест создаёт СВОЙ экземпляр хоста: свежая папка и свежая БД,
 /// поэтому порядок выполнения тестов не влияет на счётчики Added/Unchanged.
+/// Для ask_question можно передать заглушку IOllamaClient (детерминированные тесты),
+/// по умолчанию регистрируется реальный OllamaClient.
 /// </summary>
 public sealed class RagTestHost : IDisposable
 {
@@ -52,7 +55,12 @@ public sealed class RagTestHost : IDisposable
     private readonly string _sessionDir;
     private readonly string _databasePath;
 
-    public RagTestHost()
+    /// <summary>
+    /// Создаёт тестовый хост. По умолчанию регистрируется реальный OllamaClient
+    /// (зеркало Program.cs); тесты ask_question могут передать заглушку
+    /// <paramref name="ollamaOverride"/> — детерминированные ответы без сети.
+    /// </summary>
+    public RagTestHost(IOllamaClient? ollamaOverride = null)
     {
         // Кодировки Windows-1251 недоступны по умолчанию (см. Program.cs) —
         // регистрируем провайдер, иначе чтение русскоязычных txt-файлов падает.
@@ -126,9 +134,34 @@ public sealed class RagTestHost : IDisposable
         services.AddSingleton<IFileScanner, FileScanner>();
         services.AddSingleton<IIndexerService, IndexerService>();
 
-        // === Поиск (векторный + BM25 → RRF), нужен для инструмента find_relevant_docs. ===
+        // === Поиск (векторный + BM25 → RRF), нужен для инструментов find_relevant_docs и ask_question. ===
         services.AddSingleton<IVectorSearchService, VectorSearchService>();
         services.AddSingleton<IHybridSearchService, HybridSearchService>();
+
+        // === Ollama (локальная LLM) и Corrective RAG — зеркало Program.cs. ===
+        // Опции берутся с дефолтными значениями (как остальные опции хоста);
+        // реальные значения из appsettings.json здесь не читаются.
+        services.AddSingleton<IOptions<RetrievalOptions>>(
+            Options.Create(new RetrievalOptions()));
+        services.AddSingleton<IOptions<OllamaOptions>>(
+            Options.Create(new OllamaOptions()));
+
+        // По умолчанию — реальный клиент (typed HttpClient, как в Program.cs).
+        // Тесты ask_question передают заглушку IOllamaClient: регистрации ленивые,
+        // поэтому в тестах индексации/поиска сеть не затрагивается вовсе.
+        if (ollamaOverride is null)
+        {
+            services.AddHttpClient<OllamaClient>();
+            services.AddSingleton<IOllamaClient>(sp => sp.GetRequiredService<OllamaClient>());
+        }
+        else
+        {
+            services.AddSingleton<IOllamaClient>(ollamaOverride);
+        }
+
+        services.AddSingleton<IChunkGrader, ChunkGrader>();
+        services.AddSingleton<IQueryExpander, QueryExpander>();
+        services.AddSingleton<ICorrectiveRagPipeline, CorrectiveRagPipeline>();
 
         // === Логирование и MediatR. ===
         // typeof(Program) из top-level statements внутренний и из тестовой сборки

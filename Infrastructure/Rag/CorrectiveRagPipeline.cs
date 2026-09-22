@@ -68,6 +68,8 @@ public sealed class CorrectiveRagPipeline : ICorrectiveRagPipeline
                 return new AskQuestionResult(question, attempts, expandedQueries, graded);
             }
 
+            _logger.LogInformation(
+               "Попытка расширения поиска {Attempt}/{Max}", attempts, _options.MaxExpansions);
             // Расширяем запрос и повторяем поиск.
             query = await _expander.ExpandAsync(question, cancellationToken);
             expandedQueries.Add(query);

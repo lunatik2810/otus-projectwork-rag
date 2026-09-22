@@ -26,7 +26,9 @@
 
 ## Осталось
 
-- [ ] Тест `ask_question` при запущенной Ollama (`ollama pull qwen2.5:3b`).
+- [x] Тест `ask_question` при запущенной Ollama (`ollama pull qwen2.5:3b`) — автоматизирован
+      тестом `AskQuestion_WithRealOllama_PipelineRunsAndReturnsChunks` (запускает пользователь;
+      при недоступной Ollama тест не падает — resilience-путь).
 - [ ] **Этап 5 (Docker)**: Dockerfile (multi-stage linux-x64 self-contained),
       docker-compose.yml (env, тома `./data` и `./docs`, `extra_hosts: host.docker.internal`),
       документация.
@@ -53,6 +55,27 @@
         прямая ссылка `Microsoft.Testing.Platform`, без VSTest-пакетов);
         рабочий запуск: `dotnet build Tests\testProjectMCP-RAG\testProjectMCP-RAG.csproj`
         + `dotnet Tests\testProjectMCP-RAG\bin\Debug\net10.0\testProjectMCP-RAG.dll`.
+
+- [x] **Тесты `ask_question`** — имитация вызова MCP-инструмента `ask_question`
+      ([`RagTools.AskQuestion`](../../Tools/RagTools.cs)) БЕЗ запуска MCP-сервера,
+      по аналогии с FindRelevantDocsToolTests:
+  - [`Tests/testProjectMCP-RAG/AskQuestionToolTests.cs`](../../Tests/testProjectMCP-RAG/AskQuestionToolTests.cs) —
+    полная цепочка инструмент → MediatR → CorrectiveRagPipeline (гибридный поиск →
+    грейдинг → расширение запроса) → SQLite, 6 тестов:
+    - все чанки релевантны → Attempts=1, расширений нет;
+    - Ollama недоступна (заглушка бросает) → пайплайн не падает: Attempts=3, все чанки нерелевантны;
+    - мало релевантных → расширение запроса → повторный поиск успешен (Attempts=2);
+    - пустая БД → пустой результат без исключений;
+    - метаданные и оценки чанков заполнены;
+    - реальная Ollama (`new RagTestHost()` без заглушки) → пайплайн отрабатывает,
+      при недоступной Ollama не падает;
+  - [`Tests/testProjectMCP-RAG/RagTestHost.cs`](../../Tests/testProjectMCP-RAG/RagTestHost.cs) —
+    расширен до полного зеркала Program.cs: добавлены RetrievalOptions, OllamaOptions и
+    RAG-цепочка (OllamaClient, ChunkGrader, QueryExpander, CorrectiveRagPipeline);
+    опциональный параметр `ollamaOverride` позволяет подставить заглушку IOllamaClient
+    (детерминированные тесты без сети); существующие тесты не затронуты;
+  - проверено: `dotnet build Tests\testProjectMCP-RAG\testProjectMCP-RAG.csproj` —
+    0 ошибок, 0 предупреждений; запуск тестов — пользователем (способ запуска см. выше).
 
 ### Инфраструктурные правки под тесты
 
