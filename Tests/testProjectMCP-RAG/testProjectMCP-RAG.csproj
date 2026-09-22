@@ -42,5 +42,25 @@
   <ItemGroup>
     <ProjectReference Include="..\..\otus-projectwork-rag.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="Resources\DataBaseRAG\dossier_001.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\DataBaseRAG\dossier_002.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\DataBaseRAG\dossier_003.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\DataBaseRAG\dossier_004.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\DataBaseRAG\dossier_005.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\DataBaseRAG\notes.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 
 </Project>

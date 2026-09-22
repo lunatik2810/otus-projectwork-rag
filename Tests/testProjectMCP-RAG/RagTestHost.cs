@@ -4,10 +4,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OtusProjectworkRag.Configuration;
+using Serilog;
 using OtusProjectworkRag.Infrastructure.Data;
 using OtusProjectworkRag.Infrastructure.Data.Repositories;
 using OtusProjectworkRag.Infrastructure.Embeddings;
 using OtusProjectworkRag.Infrastructure.Indexing;
+using OtusProjectworkRag.Infrastructure.Search;
 using OtusProjectworkRag.Infrastructure.Text;
 using OtusProjectworkRag.Tools;
 
@@ -16,8 +18,9 @@ namespace testProjectMCP_RAG;
 /// <summary>
 /// Тестовый хост для проверки цепочки индексации БЕЗ MCP-сервера.
 /// Собирает DI-контейнер (зеркало Program.cs: только части, нужные для индексации),
-/// создаёт временную папку с документами и отдельную временную базу данных —
-/// рабочая Resources/vectorDb.db не затрагивается.
+/// копирует документы из Resources/DataBaseRAG тестового проекта во временную папку
+/// и создаёт отдельную временную базу данных — рабочая Resources/vectorDb.db
+/// не затрагивается.
 ///
 /// Каждый тест создаёт СВОЙ экземпляр хоста: свежая папка и свежая БД,
 /// поэтому порядок выполнения тестов не влияет на счётчики Added/Unchanged.
@@ -28,6 +31,14 @@ public sealed class RagTestHost : IDisposable
     // а не %TEMP%/AppData: так удобнее контролировать и очищать (замечание пользователя).
     private static readonly string TempRoot =
         Path.Combine(ResolveTestProjectDirectory(), ".rag-test-tmp");
+
+    // === Логирование: Serilog (консоль + файл), как в Program.cs, но для тестов. ===
+    // Глобальный Log.Logger инициализируем ОДИН раз на процесс под lock:
+    // xunit.v3 запускает тест-классы параллельно, а Log.Logger — статический синглтон.
+    // Файл логов лежит в папке logs каталога тестового проекта
+    // (Tests/testProjectMCP-RAG/logs) и переживает очистку временных сессий.
+    private static readonly object SerilogSync = new();
+    private static bool _serilogConfigured;
 
     /// <summary>Папка с тестовыми документами.</summary>
     public string DocumentsDir { get; }
@@ -52,24 +63,22 @@ public sealed class RagTestHost : IDisposable
         _sessionDir = Path.Combine(TempRoot, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_sessionDir);
 
-        // Временная папка с документами: 3 .txt (попадают в выборку) + 1 .md (игнорируется).
+        // Временная папка с документами: копируем ВСЕ файлы из Resources/DataBaseRAG
+        // ТЕСТОВОГО ПРОЕКТА (исходное дерево, а не вывод сборки: в bin/.../Resources
+        // попадают ещё и 35 досье основного проекта через ProjectReference, и корпус
+        // теста непредсказуемо смешивается). Тест работает со своей копией — исходные
+        // файлы не затрагиваются. notes.md остаётся вне выборки при паттерне *.txt
+        // и нужен для проверки glob-фильтра.
         DocumentsDir = Path.Combine(_sessionDir, "docs");
         Directory.CreateDirectory(DocumentsDir);
-        File.WriteAllText(Path.Combine(DocumentsDir, "doc_001.txt"),
-            "Иванов Иван Иванович, 1985 года рождения. " +
-            "Работает в отделе разработки с 2010 года. " +
-            "Основные обязанности: проектирование архитектуры, код-ревью, наставничество.");
-        File.WriteAllText(Path.Combine(DocumentsDir, "doc_002.txt"),
-            "Петрова Мария Сергеевна, 1990 года рождения. " +
-            "Менеджер проектов. Курирует команду из шести человек. " +
-            "Сертификаты: PMP, Agile Coach.");
-        File.WriteAllText(Path.Combine(DocumentsDir, "doc_003.txt"),
-            "Сидоров Пётр Алексеевич, 1978 года рождения. " +
-            "Системный администратор. Отвечает за инфраструктуру и безопасность. " +
-            "Стаж в компании — 12 лет.");
-        File.WriteAllText(Path.Combine(DocumentsDir, "notes.md"),
-            "# Это Markdown-файл: при паттерне *.txt он не должен попасть в индексацию.");
-        DocCount = 3;
+        var sourceDocs = Path.Combine(ResolveTestProjectDirectory(), "Resources", "DataBaseRAG");
+        foreach (var file in Directory.EnumerateFiles(sourceDocs))
+        {
+            File.Copy(file, Path.Combine(DocumentsDir, Path.GetFileName(file)));
+        }
+
+        // Число .txt-файлов в DocumentsDir (notes.md — вне выборки по умолчанию).
+        DocCount = Directory.EnumerateFiles(DocumentsDir, "*.txt").Count();
 
         // Отдельная временная БД на каждый тест (рядом с документами, в папке проекта).
         _databasePath = Path.Combine(_sessionDir, "vectorDb-test.db");
@@ -117,10 +126,22 @@ public sealed class RagTestHost : IDisposable
         services.AddSingleton<IFileScanner, FileScanner>();
         services.AddSingleton<IIndexerService, IndexerService>();
 
+        // === Поиск (векторный + BM25 → RRF), нужен для инструмента find_relevant_docs. ===
+        services.AddSingleton<IVectorSearchService, VectorSearchService>();
+        services.AddSingleton<IHybridSearchService, HybridSearchService>();
+
         // === Логирование и MediatR. ===
         // typeof(Program) из top-level statements внутренний и из тестовой сборки
         // недоступен — регистрируем обработчики по сборке RagTools.
-        services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Warning));
+        // Serilog инициализируем один раз на процесс; контейнеру логгер НЕ передаётся
+        // во владение (dispose: false), чтобы Dispose одного хоста не закрывал
+        // общий Log.Logger, пока его используют другие параллельные тесты.
+        EnsureSerilogConfigured();
+        services.AddLogging(builder =>
+        {
+            builder.SetMinimumLevel(LogLevel.Information);
+            builder.AddSerilog(dispose: false);
+        });
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(RagTools).Assembly));
 
         // === Сам инструмент: конструктор (ISender mediator, ILogger<RagTools>). ===
@@ -181,6 +202,41 @@ public sealed class RagTestHost : IDisposable
         catch (IOException)
         {
             // Игнорируем: другой параллельный тест мог только что создать свою сессию.
+        }
+    }
+
+    /// <summary>
+    /// Настраивает глобальный Serilog-логгер тестов: консоль + файл test-rag-*.log
+    /// в папке logs каталога тестового проекта (по аналогии с Program.cs,
+    /// уровень Information). Вызывается при каждом создании хоста, но реальная
+    /// инициализация выполняется только один раз на процесс (защита от
+    /// параллельных тестов).
+    /// </summary>
+    private static void EnsureSerilogConfigured()
+    {
+        if (_serilogConfigured)
+        {
+            return;
+        }
+
+        lock (SerilogSync)
+        {
+            if (_serilogConfigured)
+            {
+                return;
+            }
+
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Information()
+                .Enrich.FromLogContext()
+                .WriteTo.Console()
+                .WriteTo.File(
+                    Path.Combine(ResolveTestProjectDirectory(), "logs", "test-rag-.log"),
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 14)
+                .CreateLogger();
+
+            _serilogConfigured = true;
         }
     }
 
