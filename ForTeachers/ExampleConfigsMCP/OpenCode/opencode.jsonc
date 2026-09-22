@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {   
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (local)",
+      "options": {
+        "baseURL": "http://localhost:11434/v1"
+      },
+      "models": {
+        "qwen2.5:3b": {
+          "name": "Qwen2.5 3B"
+        }
+      }
+    }
+  },
+  "permission": {
+    "bash": "ask",
+    "edit": "ask"
+  },
+  "mcp": {
+    "my-remote-server": {
+      "type": "remote",      
+	  "url": "http://localhost:6543",
+      "enabled": true
+    }
+  }
+}

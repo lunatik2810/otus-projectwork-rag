@@ -1,0 +1,9 @@
+{
+	"servers": {
+		"mcp-server-otus-projectwork-rag": {
+			"url": "http://localhost:6543",
+			"type": "http"
+		}
+	},
+	"inputs": []
+}

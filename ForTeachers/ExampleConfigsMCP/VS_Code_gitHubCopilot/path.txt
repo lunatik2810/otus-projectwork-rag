@@ -1,0 +1,1 @@
+Для Windows глобально C:\Users\{user}\AppData\Roaming\Code\User\mcp.json
