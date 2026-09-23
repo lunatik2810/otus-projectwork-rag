@@ -30,6 +30,12 @@
       по фактическому состоянию кода: стек, схема потоков (индексация / гибридный поиск /
       Corrective RAG), схема БД и триггеры FTS5, особенности multilingual-e5-small,
       MCP-инструменты, конфигурация, Docker, тесты, принятые решения и ограничения.
+- [x] Создан [`LICENSE`](../../LICENSE) — лицензия проекта (MIT) + Third-Party Notices:
+      лицензии всех NuGet-зависимостей проверены по .nuspec/LICENSE в локальном кэше
+      (MediatR/MCP/Serilog/Tokenizers.HuggingFace — Apache-2.0; Microsoft.Data.Sqlite/
+      OnnxRuntime — MIT; Google.Protobuf — BSD-3-Clause; SQLitePCLRaw — Apache-2.0)
+      плюс разделы о тестовых пакетах, ONNX-модели multilingual-e5-small (MIT по карточке
+      HF) и демо-данных.
 
 ## Проверено вручную (запуск сервера на http://localhost:6543)
 

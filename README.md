@@ -110,14 +110,14 @@ docker compose up
 Для моего репозитория:
 
 ```bash
-git clone https://git.sourcecraft.dev/lunatik2810/otus-projectwork-rag.git
+git clone https://github.com/lunatik2810/otus-projectwork-rag.git
 cd otus-projectwork-rag
 docker compose up
 ```
 или одной строкой
 
 ```bash
-git clone https://git.sourcecraft.dev/lunatik2810/otus-projectwork-rag.git && cd otus-projectwork-rag && docker compose up
+git https://github.com/lunatik2810/otus-projectwork-rag.git && cd otus-projectwork-rag && docker compose up
 ```
 
 После старта MCP-сервер доступен агенту на `http://localhost:6543` — подключение в IDE

@@ -1,0 +1,120 @@
+MIT License
+
+Copyright (c) 2026 kseniya
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
+THIRD-PARTY NOTICES
+(Уведомления о сторонних компонентах и их лицензиях)
+================================================================================
+
+Данный проект использует следующие сторонние библиотеки и компоненты.
+Лицензии указаны по данным официальных метаданных NuGet-пакетов
+(файлы .nuspec/LICENSE в локальном кэше NuGet) и репозиториев проектов.
+
+Полные тексты лицензий:
+- Apache License 2.0  — https://www.apache.org/licenses/LICENSE-2.0
+- MIT License        — https://opensource.org/license/mit
+- BSD 3-Clause       — https://opensource.org/license/bsd-3-clause
+
+--------------------------------------------------------------------------------
+1. Прямые зависимости (PackageReference в otus-projectwork-rag.csproj)
+--------------------------------------------------------------------------------
+
+| Пакет (NuGet)                          | Версия | Лицензия     | Копирайт / автор                | Репозиторий |
+|----------------------------------------|--------|--------------|---------------------------------|-------------|
+| MediatR                                | 12.5.0 | Apache-2.0   | Jimmy Bogard                    | https://github.com/jbogard/MediatR |
+| Microsoft.Data.Sqlite                  | 10.0.12| MIT          | Microsoft Corporation           | https://github.com/dotnet/efcore |
+| Microsoft.ML.OnnxRuntime               | 1.30.0 | MIT          | Microsoft Corporation           | https://github.com/microsoft/onnxruntime |
+| ModelContextProtocol.AspNetCore        | 2.1.0  | Apache-2.0   | LF Projects, LLC                | https://github.com/modelcontextprotocol/csharp-sdk |
+| Serilog.AspNetCore                     | 10.0.0 | Apache-2.0   | Serilog Contributors            | https://github.com/serilog/serilog-aspnetcore |
+| Serilog.Sinks.File                     | 7.0.0  | Apache-2.0   | Serilog Contributors            | https://github.com/serilog/serilog-sinks-file |
+| Tokenizers.HuggingFace                 | 3.23.1 | Apache-2.0   | lazy_engineer                   | https://github.com/IgnaciodelaTorreArias/Tokenizers.HuggingFace.DotNet |
+
+--------------------------------------------------------------------------------
+2. Транзитивные зависимости (основные, проверенные по .nuspec)
+--------------------------------------------------------------------------------
+
+| Пакет (NuGet)                          | Версия | Лицензия     | Копирайт / автор                |
+|----------------------------------------|--------|--------------|---------------------------------|
+| MediatR.Contracts                      | 2.x    | Apache-2.0   | Jimmy Bogard                    |
+| Microsoft.Data.Sqlite.Core             | 10.0.12| MIT          | Microsoft Corporation           |
+| Microsoft.ML.OnnxRuntime.Managed       | 1.30.0 | MIT          | Microsoft Corporation           |
+| Microsoft.ML.Tokenizers                | 1.x    | MIT          | Microsoft Corporation           |
+| ModelContextProtocol                   | 2.1.0  | Apache-2.0   | LF Projects, LLC                |
+| ModelContextProtocol.Core              | 2.1.0  | Apache-2.0   | LF Projects, LLC                |
+| Serilog                                | 4.3.0  | Apache-2.0   | Serilog Contributors            |
+| Serilog.Extensions.Hosting             | 10.0.0 | Apache-2.0   | Serilog Contributors            |
+| Serilog.Extensions.Logging             | 10.x   | Apache-2.0   | Serilog Contributors            |
+| Serilog.Formatting.Compact             | 3.0.0  | Apache-2.0   | Serilog Contributors            |
+| Serilog.Settings.Configuration         | 10.0.0 | Apache-2.0   | Serilog Contributors            |
+| Serilog.Sinks.Console                  | 6.1.1  | Apache-2.0   | Serilog Contributors            |
+| Serilog.Sinks.Debug                    | 3.0.0  | Apache-2.0   | Serilog Contributors            |
+| SQLitePCLRaw.bundle_e_sqlite3          | 2.1.12 | Apache-2.0   | SourceGear, LLC / Eric Sink     |
+| SQLitePCLRaw.core                      | 2.1.12 | Apache-2.0   | SourceGear, LLC / Eric Sink     |
+| SQLitePCLRaw.provider.e_sqlite3        | 2.1.12 | Apache-2.0   | SourceGear, LLC / Eric Sink     |
+| SQLitePCLRaw.lib.e_sqlite3             | 2.1.12 | Apache-2.0   | SourceGear, LLC / Eric Sink     |
+| Google.Protobuf                        | 3.34.1 | BSD-3-Clause | Google Inc.                     |
+| Microsoft.Extensions.* (AI.Abstractions, Logging, Options, DependencyInjection, Configuration и др.) | 10.x | MIT | Microsoft Corporation |
+| System.* (Text.Json, Numerics.Tensors, IO.Pipelines и др.) | 10.x | MIT | Microsoft Corporation |
+
+Примечание: пакеты Microsoft.Extensions.* и System.* распространяются в составе
+.NET SDK/runtime и лицензированы MIT (© Microsoft Corporation, .NET Foundation).
+
+--------------------------------------------------------------------------------
+3. Зависимости тестового проекта (Tests/testProjectMCP-RAG)
+--------------------------------------------------------------------------------
+
+| Пакет (NuGet)                          | Лицензия   | Автор                |
+|----------------------------------------|------------|----------------------|
+| xunit.v3 (xunit.core, xunit.assert, xunit.v3.common и др.) | Apache-2.0 | .NET Foundation |
+| Microsoft.Testing.Platform             | MIT        | Microsoft Corporation|
+| Microsoft.NET.Test.Sdk                 | MIT        | Microsoft Corporation|
+| Microsoft.CodeCoverage                 | MIT        | Microsoft Corporation|
+| coverlet.collector                     | MIT        | Tonerdo               |
+
+Данные пакеты используются только на этапе разработки и тестирования и не
+входят в состав публикуемого приложения.
+
+--------------------------------------------------------------------------------
+4. Прочие компоненты
+--------------------------------------------------------------------------------
+
+- **SQLite (нативная библиотека e_sqlite3)** — поставляется внутри пакета
+  SQLitePCLRaw.bundle_e_sqlite3; сама SQLite находится в общественном достоянии
+  (public domain): https://www.sqlite.org/copyright.html
+
+- **ONNX-модель multilingual-e5-small** (файл Resources/multilingual-e5-small/
+  model_O4.onnx, tokenizer.json, tokenizer_config.json) — модель Hugging Face
+  intfloat/multilingual-e5-small. По данным карточки модели распространяется под
+  лицензией MIT: https://huggingface.co/intfloat/multilingual-e5-small
+  (текст лицензии в репозиторий не включён).
+
+- **Демонстрационные данные** (Resources/DataBaseRAG/*.txt) — вымышленные
+  персональные данные, созданные исключительно для учебных целей.
+
+--------------------------------------------------------------------------------
+5. Совместимость лицензий
+--------------------------------------------------------------------------------
+
+Все используемые лицензии (MIT, Apache-2.0, BSD-3-Clause, public domain)
+являются разрешительными (permissive) и совместимы с лицензией MIT, под которой
+распространяется код данного проекта. Ни одна из зависимостей не требует
+распространения производных работ под той же лицензией (не является copyleft).
