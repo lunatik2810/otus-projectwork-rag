@@ -239,7 +239,7 @@ Email: антон.орлов2@example.invalid
 
 # Пример использования
 index_status()
-index_folder("Resources\DataBaseRAG")
+index_folder("/app/Resources/DataBaseRAG") - это для контейнера  (под отладкой, то запускала index_folder("Resources\DataBaseRAG"))
 index_status()
 find_relevant_docs("Миронов")
 ask_question("Какой номер телефона Миронов Владислав Владиславович") 
