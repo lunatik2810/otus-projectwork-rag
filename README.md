@@ -238,11 +238,11 @@ Email: антон.орлов2@example.invalid
 и т.д.
 
 # Пример использования
-index_status()
-index_folder("/app/Resources/DataBaseRAG") - это для контейнера  (под отладкой, то запускала index_folder("Resources\DataBaseRAG"))
-index_status()
-find_relevant_docs("Миронов")
-ask_question("Какой номер телефона Миронов Владислав Владиславович") 
+1. index_status()
+2. index_folder("/app/Resources/DataBaseRAG") - это для контейнера  (под отладкой, то запускала index_folder("Resources\DataBaseRAG"))
+3. index_status()
+4. find_relevant_docs("Миронов")
+5. ask_question("Какой номер телефона Миронов Владислав Владиславович") 
 
 # Конфиг-файл для подключения MCP сервера проекта
 ## VSCode copilot
