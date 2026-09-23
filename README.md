@@ -117,12 +117,35 @@ docker compose up
 или одной строкой
 
 ```bash
-git https://github.com/lunatik2810/otus-projectwork-rag.git && cd otus-projectwork-rag && docker compose up
+git clone https://github.com/lunatik2810/otus-projectwork-rag.git && cd otus-projectwork-rag && docker compose up
 ```
 
 После старта MCP-сервер доступен агенту на `http://localhost:6543` — подключение в IDE
 настраивается так же, как при локальном запуске (см. выше). Состояние проверяется
 `docker compose ps` (healthcheck: `GET /health`).
+
+### Модель multilingual-e5-small (235 МБ) — хранится вне git
+
+ONNX-модель `Resources/multilingual-e5-small/model_O4.onnx` **не лежит в репозитории**:
+GitHub отклоняет файлы больше 100 MiB. Модель опубликована как asset GitHub Release
+и подтягивается автоматически:
+
+- **Docker** — модель скачивается при `docker compose up` (шаг в
+  [`Dockerfile`](Dockerfile), `ARG MODEL_URL`); если файл уже есть в контексте сборки
+  (локальная разработка), скачивание пропускается;
+- **Локальная разработка (Windows)** — один раз выполните:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\download-model.ps1
+```
+
+  или вручную сохраните
+  `https://github.com/lunatik2810/otus-projectwork-rag/releases/latest/download/model_O4.onnx`
+  в `Resources\multilingual-e5-small\model_O4.onnx`.
+
+Обновление модели: отредактируйте файл, затем во вкладке *Releases* репозитория GitHub
+создайте релиз (или обновите существующий) и прикрепите `model_O4.onnx` как asset —
+URL `releases/latest/download/model_O4.onnx` останется прежним.
 
 ### Где преподаватель указывает свою Ollama
 
@@ -161,8 +184,11 @@ docker compose up
 - `./docs:/docs` — папка, которую индексируете: `index_folder("/docs", "*.txt")`;
 - `./logs:/logs` — файлы логов Serilog.
 
-ONNX-модель multilingual-e5-small и токенизатор зашиты в образ (`/app/Resources`);
-при желании их можно заменить своим томом через `Embedding__ModelDirectory`.
+ONNX-модель multilingual-e5-small (235 МБ) не хранится в git — при сборке образа она
+скачивается из GitHub Release (см. раздел выше) либо берётся из контекста, если файл
+уже есть локально. Токенизатор и конфиг модели (`tokenizer.json`, `tokenizer_config.json`)
+входят в репозиторий. При желании модель можно заменить своим томом через
+`Embedding__ModelDirectory`.
 
 ## Документация и память
 

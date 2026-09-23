@@ -364,4 +364,6 @@ MigrationBackup/
 .ionide/
 
 # Fody - auto-generated XML schema
-FodyWeavers.xsd
+FodyWeavers.xsd  
+# --- ONNX-модель не хранится в git: скачивается из GitHub Release (см. README, scripts/download-model.ps1) ---  
+Resources/multilingual-e5-small/*.onnx  

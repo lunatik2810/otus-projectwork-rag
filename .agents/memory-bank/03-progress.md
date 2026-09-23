@@ -36,6 +36,16 @@
       OnnxRuntime — MIT; Google.Protobuf — BSD-3-Clause; SQLitePCLRaw — Apache-2.0)
       плюс разделы о тестовых пакетах, ONNX-модели multilingual-e5-small (MIT по карточке
       HF) и демо-данных.
+- [x] **Миграция на GitHub** — `origin` переключён на `https://github.com/lunatik2810/
+      otus-projectwork-rag.git` (SourceCraft сохранён как remote `sourcecraft`);
+      история переписана (`git filter-branch`): ONNX-модель `model_O4.onnx` (235 МБ)
+      удалена из всех коммитов (GitHub отклоняет файлы > 100 MiB); модель публикуется
+      как asset GitHub Release и скачивается: в Docker — автоматически в
+      [`Dockerfile`](../../Dockerfile) (`ARG MODEL_URL`, шаг пропускается при наличии
+      файла в контексте сборки), локально — скриптом
+      [`scripts/download-model.ps1`](../../scripts/download-model.ps1);
+      в `.gitignore` добавлено правило `Resources/multilingual-e5-small/*.onnx`;
+      README обновлён (URL клонирования + раздел про модель).
 
 ## Проверено вручную (запуск сервера на http://localhost:6543)
 
