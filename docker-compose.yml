@@ -1,0 +1,65 @@
+# ============================================================
+# MCP-сервер Corrective RAG: сервер в контейнере, Ollama на хосте.
+#
+# Запуск:            docker compose up
+# Доступ агенту:     http://localhost:6543
+#
+# Ollama преподавателя указывается в этом файле (или в .env, см. .env.example):
+#   Ollama__Model    — имя модели (по умолчанию qwen2.5:3b)
+#   Ollama__BaseUrl  — адрес Ollama на хосте (host.docker.internal — это хост,
+#                      а не контейнер: внутри контейнера localhost — сам контейнер)
+#
+# Нюансы:
+#   * Windows/macOS (Docker Desktop): host.docker.internal работает из коробки.
+#   * Linux: extra_hosts ниже уже добавляет host.docker.internal; саму Ollama
+#     запустите с OLLAMA_HOST=0.0.0.0 (по умолчанию слушает только 127.0.0.1).
+#   * Альтернатива — Ollama в Docker: раскомментируйте сервис ollama внизу и
+#     задайте Ollama__BaseUrl: "http://ollama:11434/v1".
+# ============================================================
+
+services:
+  rag-mcp:
+    build: .
+    container_name: rag-mcp
+    ports:
+      - "${RAG_MCP_PORT:-6543}:8080"
+    environment:
+      ASPNETCORE_URLS: "http://+:8080"
+      # Адрес и модель Ollama — переопределяются через .env (OLLAMA_BASE_URL, OLLAMA_MODEL).
+      Ollama__BaseUrl: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}"
+      Ollama__Model: "${OLLAMA_MODEL:-qwen2.5:3b}"
+      # БД в томе (переживает пересоздание контейнера), логи — тоже в томе.
+      Database__Path: "/data/vectorDb.db"
+      Indexing__DefaultGlob: "*.txt"
+      Serilog__LogFile: "/logs/rag-.log"
+    volumes:
+      - ./data:/data   # SQLite vectorDb.db
+      - ./docs:/docs   # папка для index_folder("/docs", "*.txt")
+      - ./logs:/logs   # файлы логов Serilog
+    extra_hosts:
+      # Linux: позволяет контейнеру обращаться к хосту по host.docker.internal.
+      # На Docker Desktop (Windows/macOS) запись безвредна.
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # --- Опционально: Ollama в Docker (вместо локальной на хосте) ---
+  # 1. Раскомментируйте сервис ниже.
+  # 2. В сервисе rag-mcp задайте  Ollama__BaseUrl: "http://ollama:11434/v1".
+  # 3. Подтяните модель: docker compose exec ollama ollama pull qwen2.5:3b
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama
+  #   volumes:
+  #     - ollama-models:/root/.ollama
+  #   ports:
+  #     - "11434:11434"
+  #   restart: unless-stopped
+
+# volumes:
+#   ollama-models:

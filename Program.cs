@@ -114,6 +114,9 @@ try
         Log.Information("Схема базы данных готова: {Path}", connectionFactory.DatabasePath);
     }
 
+    // === Health-эндпоинт для healthcheck в docker-compose (curl /health). ===
+    app.MapGet("/health", () => Results.Ok("ok"));
+
     app.MapMcp();
 
     app.Run();

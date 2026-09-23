@@ -81,4 +81,32 @@ Email: антон.орлов2@example.invalid
 ...
 и т.д.
 
+# Описание использованных инструментов и моделей
 
+Подробнее в memory-bank. Попросила подготовить данные Агента, ниже краткая сводка:
+
+## Модели
+
+multilingual-e5-small (ONNX, 384 измерения)	- Эмбеддинги текста. Локальная, скачана с Hugging Face (intfloat/multilingual-e5-small/onnx). Инференс через ONNX Runtime; входы input_ids, attention_mask, token_type_ids; выход — mean pooling по маске внимания → L2-нормализация. Требует lowercase + префиксы passage: / query: ; работает стабильно при длине до ~500 токенов (чанки по 480 токенов)
+
+qwen2.5:3b (локальная LLM через Ollama, http://localhost:11434/v1, OpenAI-совместимый API) - 	Грейдинг релевантности чанков (yes/no) и расширение запроса (QueryExpander) в Corrective RAG
+
+## Инструменты и технологии (.NET)
+
+.NET 10 / ASP.NET Core - Хост MCP-сервера (HTTP Streamable, Stateless)
+
+ModelContextProtocol.AspNetCore 2.1.0 - Официальный C# SDK для MCP-серверов
+
+SQLite + FTS5 - Хранение текста, векторов; полнотекстовый индекс BM25 (синхронизация триггерами)
+
+Microsoft.ML.OnnxRuntime 1.30.0 - Инференс модели эмбеддингов
+
+Tokenizers.HuggingFace 3.23.1 - Токенизация через tokenizer.json модели
+
+MediatR 14.2.0 - Запросы/обработчики (Request и Handler рядом)
+
+Serilog - Логирование: stdout + файл, от уровня Information
+
+Docker / docker-compose - Финальная проверка работы сервера в контейнере
+
+xUnit - Модульные тесты (тесты инструментов MCP, папка Tests/testProjectMCP-RAG)

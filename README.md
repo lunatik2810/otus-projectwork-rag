@@ -1,31 +1,3 @@
-# Проверочные факты
-
-Можно взять любое досье из папки [DataBaseRAG](Resources\DataBaseRAG), они уникальны.
-Например:
- - [dossier_001.txt](Resources\DataBaseRAG\dossier_001.txt) 
-ФИО: Миронов Владислав Владиславович
-Дата и место рождения: 03.09.1993, Воронеж
-Гражданство: Российская Федерация
-Паспортные данные: 0000 100001, выдан 15.06.2015 вымышленным подразделением №101
-Адрес регистрации: г. Москва, ул. Речная, д. 15, кв. 141
-Фактическое проживание: г. Москва, ул. Речная, д. 15, кв. 141, временное проживание не менялось последние 2 года
-Телефон: +7 (900) 775-30-55
-Email: владислав.миронов1@example.invalid
-Социальные сети: Telegram: @владислав_demo_1; VK: vk.com/id700001 (вымышленные профили)
-
- - [dossier_002.txt](Resources\DataBaseRAG\dossier_002.txt) 
-ФИО: Орлов Антон Алексеевич
-Дата и место рождения: 21.12.1989, Ярославль
-Гражданство: Российская Федерация, второе гражданство отсутствует
-Паспортные данные: 0000 100002, выдан 15.01.2005 вымышленным подразделением №102
-Адрес регистрации: г. Казань, ул. Молодёжная, д. 81, кв. 77
-Фактическое проживание: г. Казань, ул. Молодёжная, д. 81, кв. 77, временное проживание не менялось последние 2 года
-Телефон: +7 (900) 525-24-89
-Email: антон.орлов2@example.invalid
-Социальные сети: Telegram: @антон_demo_2; VK: vk.com/id700002 (вымышленные профили)
-
-...
-и т.д.
 
 # MCP-сервер Corrective RAG на базе SQLite + multilingual-e5-small + Ollama
 
@@ -124,32 +96,73 @@ dotnet run --launch-profile http
 
 ## Docker
 
-Сервер рассчитан на запуск в контейнере: конфигурация передаётся переменными окружения,
-папка документов и БД монтируются томами. Ключевой момент — **Ollama на хосте**, поэтому
-внутри контейнера используйте `http://host.docker.internal:11434/v1` (на Linux добавьте
-`extra_hosts: ["host.docker.internal:host-gateway"]`).
+Сервер рассчитан на запуск в контейнере: вся конфигурация передаётся переменными окружения
+(переопределяют `appsettings.json` через `Section__Key`), папки документов и БД монтируются
+томами. Готовые файлы — [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml),
+[`.env.example`](.env.example), [`.dockerignore`](.dockerignore).
 
-Пример `docker-compose.yml` (полный вариант — в плане
-[plans/01-rag-mcp-plan.md](plans/01-rag-mcp-plan.md#6-развёртывание-в-docker)):
+### Запуск одной командой
 
-```yaml
-services:
-  rag-mcp:
-    build: .
-    ports:
-      - "6543:8080"
-    environment:
-      ASPNETCORE_URLS: "http://+:8080"
-      Ollama__BaseUrl: "http://host.docker.internal:11434/v1"
-      Ollama__Model: "qwen2.5:3b"
-      Database__Path: "/data/vectorDb.db"
-      Indexing__DefaultGlob: "*.txt"
-    volumes:
-      - ./data:/data
-      - ./docs:/docs
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+```bash
+git clone <repo> && cd <repo>
+docker compose up
 ```
+Для моего репозитория:
+
+```bash
+git clone https://git.sourcecraft.dev/lunatik2810/otus-projectwork-rag.git
+cd otus-projectwork-rag
+docker compose up
+```
+или одной строкой
+
+```bash
+git clone https://git.sourcecraft.dev/lunatik2810/otus-projectwork-rag.git && cd otus-projectwork-rag && docker compose up
+```
+
+После старта MCP-сервер доступен агенту на `http://localhost:6543` — подключение в IDE
+настраивается так же, как при локальном запуске (см. выше). Состояние проверяется
+`docker compose ps` (healthcheck: `GET /health`).
+
+### Где преподаватель указывает свою Ollama
+
+MCP-сервер работает в контейнере, а Ollama — на компьютере преподавателя. Внутри контейнера
+`localhost` — это сам контейнер, поэтому адрес хоста задаётся отдельно. Два параметра
+настраиваются в [`docker-compose.yml`](docker-compose.yml) (или через `.env`, см.
+[`.env.example`](.env.example)):
+
+| Переменная | Значение по умолчанию | Назначение |
+|---|---|---|
+| `Ollama__BaseUrl` | `http://host.docker.internal:11434/v1` | Адрес OpenAI-совместимого API Ollama на хосте |
+| `Ollama__Model` | `qwen2.5:3b` | Модель грейдинга релевантности и расширения запроса |
+
+Чтобы использовать свою модель:
+
+```bash
+cp .env.example .env
+# отредактировать OLLAMA_MODEL=своя_модель (и при необходимости OLLAMA_BASE_URL=...)
+docker compose up
+```
+
+Важные нюансы доступа к Ollama на хосте:
+
+- **Windows/macOS (Docker Desktop)** — работает из коробки: `host.docker.internal` ведёт
+  на хост, Ollama, слушающая `127.0.0.1:11434`, достижима.
+- **Linux** — в compose уже добавлен `extra_hosts: host.docker.internal:host-gateway`,
+  но саму Ollama нужно запустить с `OLLAMA_HOST=0.0.0.0` (по умолчанию она слушает только
+  `127.0.0.1` и недоступна контейнеру через шлюз).
+- **Альтернатива** — поднять Ollama в Docker: раскомментировать сервис `ollama` в
+  [`docker-compose.yml`](docker-compose.yml) и задать
+  `Ollama__BaseUrl: "http://ollama:11434/v1"`.
+
+### Тома
+
+- `./data:/data` — SQLite `vectorDb.db` (переживает пересоздание контейнера);
+- `./docs:/docs` — папка, которую индексируете: `index_folder("/docs", "*.txt")`;
+- `./logs:/logs` — файлы логов Serilog.
+
+ONNX-модель multilingual-e5-small и токенизатор зашиты в образ (`/app/Resources`);
+при желании их можно заменить своим томом через `Embedding__ModelDirectory`.
 
 ## Документация и память
 
@@ -168,3 +181,61 @@ services:
 - [ModelContextProtocol.AspNetCore](https://www.nuget.org/packages/ModelContextProtocol.AspNetCore)
 - [Документация MCP](https://modelcontextprotocol.io/)
 - [Использование MCP в VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
+
+# Проверочные факты
+
+Можно взять любое досье из папки [DataBaseRAG](Resources\DataBaseRAG), они уникальны.
+Например:
+ - [dossier_001.txt](Resources\DataBaseRAG\dossier_001.txt) 
+ФИО: Миронов Владислав Владиславович
+Дата и место рождения: 03.09.1993, Воронеж
+Гражданство: Российская Федерация
+Паспортные данные: 0000 100001, выдан 15.06.2015 вымышленным подразделением №101
+Адрес регистрации: г. Москва, ул. Речная, д. 15, кв. 141
+Фактическое проживание: г. Москва, ул. Речная, д. 15, кв. 141, временное проживание не менялось последние 2 года
+Телефон: +7 (900) 775-30-55
+Email: владислав.миронов1@example.invalid
+Социальные сети: Telegram: @владислав_demo_1; VK: vk.com/id700001 (вымышленные профили)
+
+ - [dossier_002.txt](Resources\DataBaseRAG\dossier_002.txt) 
+ФИО: Орлов Антон Алексеевич
+Дата и место рождения: 21.12.1989, Ярославль
+Гражданство: Российская Федерация, второе гражданство отсутствует
+Паспортные данные: 0000 100002, выдан 15.01.2005 вымышленным подразделением №102
+Адрес регистрации: г. Казань, ул. Молодёжная, д. 81, кв. 77
+Фактическое проживание: г. Казань, ул. Молодёжная, д. 81, кв. 77, временное проживание не менялось последние 2 года
+Телефон: +7 (900) 525-24-89
+Email: антон.орлов2@example.invalid
+Социальные сети: Telegram: @антон_demo_2; VK: vk.com/id700002 (вымышленные профили)
+
+...
+и т.д.
+
+# Пример использования
+index_status()
+index_folder("Resources\DataBaseRAG")
+index_status()
+find_relevant_docs("Миронов")
+ask_question("Какой номер телефона Миронов Владислав Владиславович") 
+
+# Конфиг-файл для подключения MCP сервера проекта
+## VSCode copilot
+
+Путь к mcp.json - Для Windows глобально C:\Users\{user}\AppData\Roaming\Code\User\mcp.json
+
+Сам файл mcp.json:
+```json
+{
+	"servers": {
+		"mcp-server-otus-projectwork-rag": {
+			"url": "http://localhost:6543",
+			"type": "http"
+		}
+	},
+	"inputs": []
+}
+```
+
+## Отдельные файлы
+Отдельно писала про это в папке [ExampleConfigsMCP](ForTeachers\ExampleConfigsMCP) 
+

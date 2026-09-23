@@ -1,0 +1,36 @@
+# Исключаем служебное и тяжёлое из контекста сборки образа.
+# ВАЖНО: Resources/ НЕ исключаем — там ONNX-модель multilingual-e5-small и досье,
+# они копируются в выходную папку через csproj (CopyToOutputDirectory).
+
+# VCS и IDE
+.git
+.gitignore
+.vs
+.idea
+.vscode
+
+# Артефакты сборки
+**/bin
+**/obj
+**/node_modules
+
+# Тестовый проект не нужен в образе
+Tests
+
+# Каталоги-тома, монтируемые compose в рантайме (создаются автоматически)
+data
+docs
+logs
+
+# Временные файлы запуска и вызовов
+test-calls
+rag-server-out.txt
+rag-server-err.txt
+*.log
+
+# Документация, память агентов, планы (не нужны в образе)
+ForTeachers
+plans
+.agents
+.codeassistant
+.agents-rules

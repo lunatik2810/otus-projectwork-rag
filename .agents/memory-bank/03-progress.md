@@ -13,6 +13,23 @@
 - [x] **Этап 4** — MCP-инструменты `index_folder`, `find_relevant_docs`, `ask_question`,
       `index_status` ([McpServerTool], description), Serilog (stdout + файл), DI.
 - [x] **Проверка сборки** — `dotnet build` проходит без ошибок/предупреждений.
+- [x] **Этап 5 (Docker)** — созданы [`Dockerfile`](../../Dockerfile) (multi-stage
+      sdk:10.0 → aspnet:10.0, framework-dependent linux-x64, curl для healthcheck),
+      [`docker-compose.yml`](../../docker-compose.yml) (env `Ollama__BaseUrl=host.docker.internal`
+      + `Ollama__Model` через .env-переменные с дефолтами, тома `./data`, `./docs`, `./logs`,
+      `extra_hosts: host.docker.internal:host-gateway`, healthcheck на `/health`, `restart`),
+      [`.env.example`](../../.env.example) (`OLLAMA_MODEL`, `OLLAMA_BASE_URL`, `RAG_MCP_PORT`),
+      [`.dockerignore`](../../.dockerignore) (исключены bin/obj/.git/Tests/data/docs/logs,
+      `Resources` с ONNX-моделью остаются в контексте); в `Program.cs` добавлен endpoint
+      `/health`; README — раздел Docker переписан под запуск преподавателем
+      (`git clone && docker compose up`).
+
+## Документация
+
+- [x] Создан [`ARCHITECTURE.md`](../../ARCHITECTURE.md) — полное описание архитектуры
+      по фактическому состоянию кода: стек, схема потоков (индексация / гибридный поиск /
+      Corrective RAG), схема БД и триггеры FTS5, особенности multilingual-e5-small,
+      MCP-инструменты, конфигурация, Docker, тесты, принятые решения и ограничения.
 
 ## Проверено вручную (запуск сервера на http://localhost:6543)
 
@@ -29,9 +46,6 @@
 - [x] Тест `ask_question` при запущенной Ollama (`ollama pull qwen2.5:3b`) — автоматизирован
       тестом `AskQuestion_WithRealOllama_PipelineRunsAndReturnsChunks` (запускает пользователь;
       при недоступной Ollama тест не падает — resilience-путь).
-- [ ] **Этап 5 (Docker)**: Dockerfile (multi-stage linux-x64 self-contained),
-      docker-compose.yml (env, тома `./data` и `./docs`, `extra_hosts: host.docker.internal`),
-      документация.
 - [ ] Обновить `ForTeachers/report.md`.
 - [ ] Почистить временные файлы запуска (`rag-server-out.txt`, `rag-server-err.txt`, `test-calls/*`).
 
