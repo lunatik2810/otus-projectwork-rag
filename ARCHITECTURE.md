@@ -379,10 +379,11 @@ Microsoft/System приглушены до Warning). Bootstrap-логгер со
   - порт `6543:8080`, `ASPNETCORE_URLS=http://+:8080`;
   - env: `Ollama__BaseUrl=http://host.docker.internal:11434/v1`, `Ollama__Model=qwen2.5:3b`
     (переопределяются через `.env`: `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `RAG_MCP_PORT`);
-  - `Database__Path=/data/vectorDb.db`, `Indexing__DefaultGlob=*.txt`,
-    `Serilog__LogFile=/logs/rag-.log`;
-  - тома: `./data:/data` (БД), `./docs:/docs` (папка для `index_folder("/docs", "*.txt")`),
-    `./logs:/logs`;
+  - `Database__Path=/dataBaseDocker/vectorDb.db`, `Indexing__DefaultGlob=*.txt`,
+    `Serilog__LogFile=/logsDocker/rag-.log`;
+  - тома: `./dataBaseDocker:/dataBaseDocker` (БД),
+    `./docsDocker:/docsDocker` (папка для `index_folder("/docsDocker", "*.txt")`),
+    `./logsDocker:/logsDocker`;
   - `extra_hosts: host.docker.internal:host-gateway` (Linux; на Docker Desktop безвредна);
   - healthcheck `curl http://localhost:8080/health`, `restart: unless-stopped`.
 

@@ -16,10 +16,12 @@
 - [x] **Этап 5 (Docker)** — созданы [`Dockerfile`](../../Dockerfile) (multi-stage
       sdk:10.0 → aspnet:10.0, framework-dependent linux-x64, curl для healthcheck),
       [`docker-compose.yml`](../../docker-compose.yml) (env `Ollama__BaseUrl=host.docker.internal`
-      + `Ollama__Model` через .env-переменные с дефолтами, тома `./data`, `./docs`, `./logs`,
-      `extra_hosts: host.docker.internal:host-gateway`, healthcheck на `/health`, `restart`),
-      [`.env.example`](../../.env.example) (`OLLAMA_MODEL`, `OLLAMA_BASE_URL`, `RAG_MCP_PORT`),
-      [`.dockerignore`](../../.dockerignore) (исключены bin/obj/.git/Tests/data/docs/logs,
+      + `Ollama__Model` через .env-переменные с дефолтами, тома `./dataBaseDocker`,
+      `./docsDocker`, `./logsDocker` (внутри контейнера: `/dataBaseDocker`, `/docsDocker`,
+      `/logsDocker`), `extra_hosts: host.docker.internal:host-gateway`, healthcheck на `/health`,
+      `restart`), [`.env.example`](../../.env.example) (`OLLAMA_MODEL`, `OLLAMA_BASE_URL`,
+      `RAG_MCP_PORT`), [`.dockerignore`](../../.dockerignore) (исключены
+      bin/obj/.git/Tests/data/docs/logs/dataBaseDocker/docsDocker/logsDocker,
       `Resources` с ONNX-моделью остаются в контексте); в `Program.cs` добавлен endpoint
       `/health`; README — раздел Docker переписан под запуск преподавателем
       (`git clone && docker compose up`).
@@ -110,6 +112,23 @@
     (детерминированные тесты без сети); существующие тесты не затронуты;
   - проверено: `dotnet build Tests\testProjectMCP-RAG\testProjectMCP-RAG.csproj` —
     0 ошибок, 0 предупреждений; запуск тестов — пользователем (способ запуска см. выше).
+
+### Изменение логики выбора результатов `ask_question`
+
+- [`Infrastructure/Rag/CorrectiveRagPipeline.cs`](../../Infrastructure/Rag/CorrectiveRagPipeline.cs):
+  при исчерпании попыток (3 поиска, 2 расширения) теперь возвращается попытка
+  с НАИБОЛЬШИМ числом релевантных чанков; при равенстве — первая (поиск по
+  исходному запросу). Ранний выход при `>= MinRelevant` сохранён; семантика
+  `Attempts`/`ExpandedQueries` не изменилась. Добавлен лог
+  «Попытки исчерпаны: выбрана попытка N из M».
+- [`Tests/testProjectMCP-RAG/AskQuestionToolTests.cs`](../../Tests/testProjectMCP-RAG/AskQuestionToolTests.cs):
+  заглушка `ScriptedOllamaClient` расширена режимом `relevantPerBatch` (первые N
+  чанков пакета помечаются релевантными); добавлены 2 теста:
+  - `AskQuestion_ExhaustedAttempts_ReturnsAttemptWithMaxRelevant` — [1,2,1] →
+    возвращается 2-я попытка (поиск по «Казань» → dossier_002);
+  - `AskQuestion_ExhaustedAttempts_Tie_ReturnsFirstAttempt` — [1,1,1] →
+    возвращается 1-я попытка (поиск по исходному запросу → dossier_001);
+- Проверено: `dotnet build` — 0 предупреждений; запуск тестового exe — 19/19 успешно.
 
 ### Инфраструктурные правки под тесты
 

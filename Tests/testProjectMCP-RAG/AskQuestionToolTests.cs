@@ -23,6 +23,7 @@ namespace testProjectMCP_RAG;
 public class AskQuestionToolTests
 {
     private const string FirstDossier = "dossier_001.txt";
+    private const string SecondDossier = "dossier_002.txt";
 
     /// <summary>
     /// Общий префикс: свежий хост с ЗАГЛУШКОЙ Ollama + индексация всех .txt-досье.
@@ -123,6 +124,52 @@ public class AskQuestionToolTests
         Assert.Equal("Миронов Миронова", result.ExpandedQueries[0]);
         Assert.NotEmpty(result.Results);
         Assert.All(result.Results, r => Assert.True(r.Relevant, "Вторая попытка должна вернуть релевантные чанки."));
+    }
+
+    /// <summary>
+    /// При исчерпании попыток возвращается попытка с НАИБОЛЬШИМ числом релевантных
+    /// чанков: relevantPerBatch=[1,2,1] — ни одна попытка не достигает порога
+    /// MinRelevant=3, цикл отрабатывает все 3 попытки, лучшей оказывается вторая
+    /// (поиск по первому расширению «Казань» → dossier_002.txt).
+    /// </summary>
+    [Fact]
+    public async Task AskQuestion_ExhaustedAttempts_ReturnsAttemptWithMaxRelevant()
+    {
+        using var host = await CreateIndexedHostAsync(
+            new ScriptedOllamaClient(relevantPerBatch: [1, 2, 1], expansion: "Казань"));
+        var tools = host.Services.GetRequiredService<RagTools>();
+
+        var result = await tools.AskQuestion("Миронов", TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, result.Attempts);
+        Assert.Equal(2, result.ExpandedQueries.Count);
+        Assert.NotEmpty(result.Results);
+        // Лучшая попытка — вторая: поиск по «Казань», верхний чанк из dossier_002.
+        Assert.Equal(SecondDossier, result.Results[0].Chunk.FileName);
+        Assert.Equal(2, result.Results.Count(r => r.Relevant));
+    }
+
+    /// <summary>
+    /// При равенстве числа релевантных во всех попытках возвращается ПЕРВАЯ попытка
+    /// (поиск по исходному запросу): relevantPerBatch=[1,1,1], расширение уводит
+    /// в другую тему («Казань»), но порог MinRelevant=3 не достигнут ни разу —
+    /// побеждает исходный запрос «Миронов» → верхний чанк из dossier_001.txt.
+    /// </summary>
+    [Fact]
+    public async Task AskQuestion_ExhaustedAttempts_Tie_ReturnsFirstAttempt()
+    {
+        using var host = await CreateIndexedHostAsync(
+            new ScriptedOllamaClient(relevantPerBatch: [1, 1, 1], expansion: "Казань"));
+        var tools = host.Services.GetRequiredService<RagTools>();
+
+        var result = await tools.AskQuestion("Миронов", TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, result.Attempts);
+        Assert.Equal(2, result.ExpandedQueries.Count);
+        Assert.NotEmpty(result.Results);
+        // Ничья — возвращается первая попытка: поиск по «Миронов», верхний чанк из dossier_001.
+        Assert.Equal(FirstDossier, result.Results[0].Chunk.FileName);
+        Assert.Equal(1, result.Results.Count(r => r.Relevant));
     }
 
     /// <summary>
@@ -249,6 +296,10 @@ public class AskQuestionToolTests
     /// Вердикты грейдинга задаются ПОПЫТКАМИ (пакетами): подряд идущие вызовы
     /// грейдинга образуют один пакет, для каждого пакета берётся своё значение
     /// из <paramref name="gradeByBatch"/> (последнее повторяется, если пакетов больше).
+    /// Альтернативный режим <paramref name="relevantPerBatch"/> помечает релевантными
+    /// первые N чанков каждого пакета (N — элемент массива): позволяет проверить
+    /// выбор «лучшей попытки» при исчерпании расширений, когда ни один пакет не
+    /// достигает порога MinRelevant.
     /// В режиме throwOnCall каждый вызов завершается исключением — имитация
     /// недоступной Ollama.
     /// </summary>
@@ -256,14 +307,20 @@ public class AskQuestionToolTests
     {
         private readonly bool _throwOnCall;
         private readonly bool[] _gradeByBatch;
+        private readonly int[]? _relevantPerBatch;
         private readonly string _expansion;
         private bool _previousWasGrade;
         private int _batchIndex = -1;
+        private int _gradeIndexInBatch;
 
         public ScriptedOllamaClient(
-            bool[]? gradeByBatch = null, string expansion = "", bool throwOnCall = false)
+            bool[]? gradeByBatch = null,
+            int[]? relevantPerBatch = null,
+            string expansion = "",
+            bool throwOnCall = false)
         {
             _gradeByBatch = gradeByBatch ?? [true];
+            _relevantPerBatch = relevantPerBatch;
             _expansion = expansion;
             _throwOnCall = throwOnCall;
         }
@@ -285,11 +342,21 @@ public class AskQuestionToolTests
                 if (!_previousWasGrade)
                 {
                     _batchIndex++;
+                    _gradeIndexInBatch = 0;
                 }
                 _previousWasGrade = true;
 
-                var relevant = _gradeByBatch[Math.Min(_batchIndex, _gradeByBatch.Length - 1)];
-                return Task.FromResult(relevant ? """{"relevant": true}""" : """{"relevant": false}""");
+                // Режим «сколько первых чанков пакета релевантны».
+                if (_relevantPerBatch is not null)
+                {
+                    var limit = _relevantPerBatch[Math.Min(_batchIndex, _relevantPerBatch.Length - 1)];
+                    var relevant = _gradeIndexInBatch < limit;
+                    _gradeIndexInBatch++;
+                    return Task.FromResult(relevant ? """{"relevant": true}""" : """{"relevant": false}""");
+                }
+
+                var verdict = _gradeByBatch[Math.Min(_batchIndex, _gradeByBatch.Length - 1)];
+                return Task.FromResult(verdict ? """{"relevant": true}""" : """{"relevant": false}""");
             }
 
             // Расширение запроса: «Исходный запрос: …».

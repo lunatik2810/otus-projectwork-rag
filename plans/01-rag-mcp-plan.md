@@ -163,7 +163,7 @@ Serilog: детальные логи в инструментах (Scopes), фа�
 |---|---|---|
 | `Ollama__BaseUrl` | адрес Ollama (хост!) | `http://host.docker.internal:11434/v1` |
 | `Ollama__Model` | модель грейдинга/расширения | `qwen2.5:3b` |
-| `Database__Path` | путь к БД в контейнере (том) | `/data/vectorDb.db` |
+| `Database__Path` | путь к БД в контейнере (том) | `/dataBaseDocker/vectorDb.db` |
 | `Embedding__ModelDirectory` | каталог с ONNX-моделью (обычно зашит в образ) | `/app/Resources/multilingual-e5-small` |
 | `Indexing__DefaultGlob` | глоб по умолчанию | `*.txt` |
 | `ASPNETCORE_URLS` | порт HTTP в контейнере | `http://+:8080` |
@@ -171,19 +171,19 @@ Serilog: детальные логи в инструментах (Scopes), фа�
 
 Опционально (тоже env): `Chunking__MaxTokens`, `Chunking__OverlapTokens`, `Retrieval__Bm25TopK`, `Retrieval__VectorTopK`, `Retrieval__RrfK`, `Retrieval__FinalTopK`, `Retrieval__MinRelevant`, `Retrieval__MaxExpansions`.
 
-Папка с документами НЕ настраивается в конфиге — она передаётся как параметр инструмента `index_folder` (в контейнер монтируется том, например `/docs`, и хост-агент вызывает `index_folder("/docs", "*.txt")`).
+Папка с документами НЕ настраивается в конфиге — она передаётся как параметр инструмента `index_folder` (в контейнер монтируется том, например `/docsDocker`, и хост-агент вызывает `index_folder("/docsDocker", "*.txt")`).
 
 ### 6.3 Тома и проброс порта
 
-- `./data:/data` — чтобы БД `vectorDb.db` переживала пересоздание контейнера;
-- `./docs:/docs` — папка, которую индексируем;
+- `./dataBaseDocker:/dataBaseDocker` — чтобы БД `vectorDb.db` переживала пересоздание контейнера;
+- `./docsDocker:/docsDocker` — папка, которую индексируем;
 - порт: контейнер слушает 8080, наружу пробрасывается, например, 6543 → MCP-клиент подключается к `http://localhost:6543` как раньше.
 
 ### 6.4 Правки в коде, нужные для Linux-контейнера
 
 - **`windows-1251`**: на .NET Core `Encoding.GetEncoding("windows-1251")` бросает исключение без явной регистрации провайдера — в `Program.cs` добавить `Encoding.RegisterProvider(CodePagesEncodingProvider.Instance)`.
 - **Single-file + ONNX**: при `PublishSingleFile` native-библиотеки должны распаковываться в рантайме — флаг `<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>` (уже в плане).
-- **Логирование**: Serilog пишет ОДНОВРЕМЕННО в stdout (Console-силка) и в файл (`logs/rag-.log`, rolling); минимальный уровень — `Information` (настраивается через `Serilog__MinimumLevel`). В контейнере путь лог-файла должен указывать на смонтированный том (например, `/logs/rag-.log`), иначе логи не переживут пересоздание контейнера.
+- **Логирование**: Serilog пишет ОДНОВРЕМЕННО в stdout (Console-силка) и в файл (`logs/rag-.log`, rolling); минимальный уровень — `Information` (настраивается через `Serilog__MinimumLevel`). В контейнере путь лог-файла должен указывать на смонтированный том (например, `/logsDocker/rag-.log`), иначе логи не переживут пересоздание контейнера.
 
 ### 6.5 Пример docker-compose.yml
 
@@ -197,11 +197,12 @@ services:
       ASPNETCORE_URLS: "http://+:8080"
       Ollama__BaseUrl: "http://host.docker.internal:11434/v1"
       Ollama__Model: "qwen2.5:3b"
-      Database__Path: "/data/vectorDb.db"
+      Database__Path: "/dataBaseDocker/vectorDb.db"
       Indexing__DefaultGlob: "*.txt"
     volumes:
-      - ./data:/data
-      - ./docs:/docs
+      - ./dataBaseDocker:/dataBaseDocker
+      - ./docsDocker:/docsDocker
+      - ./logsDocker:/logsDocker
     extra_hosts:
       - "host.docker.internal:host-gateway"   # Linux; Docker Desktop не требует
 ```

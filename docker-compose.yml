@@ -29,13 +29,13 @@ services:
       Ollama__BaseUrl: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}"
       Ollama__Model: "${OLLAMA_MODEL:-qwen2.5:3b}"
       # БД в томе (переживает пересоздание контейнера), логи — тоже в томе.
-      Database__Path: "/data/vectorDb.db"
+      Database__Path: "/dataBaseDocker/vectorDb.db"
       Indexing__DefaultGlob: "*.txt"
-      Serilog__LogFile: "/logs/rag-.log"
+      Serilog__LogFile: "/logsDocker/rag-.log"
     volumes:
-      - ./data:/data   # SQLite vectorDb.db
-      - ./docs:/docs   # папка для index_folder("/docs", "*.txt")
-      - ./logs:/logs   # файлы логов Serilog
+      - ./dataBaseDocker:/dataBaseDocker   # SQLite vectorDb.db
+      - ./docsDocker:/docsDocker   # папка для index_folder("/docsDocker", "*.txt")
+      - ./logsDocker:/logsDocker   # файлы логов Serilog
     extra_hosts:
       # Linux: позволяет контейнеру обращаться к хосту по host.docker.internal.
       # На Docker Desktop (Windows/macOS) запись безвредна.

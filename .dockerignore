@@ -21,6 +21,9 @@ Tests
 data
 docs
 logs
+dataBaseDocker
+docsDocker
+logsDocker
 
 # Временные файлы запуска и вызовов
 test-calls
