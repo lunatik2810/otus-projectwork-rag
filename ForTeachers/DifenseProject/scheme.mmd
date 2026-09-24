@@ -1,0 +1,82 @@
+%% =====================================================================
+%% otus-projectwork-rag · Схема работы двух MCP-инструментов из Tools/RagTools.cs
+%%
+%%   СУЩНОСТЬ 1 · IndexFolder  — наполняет базу знаний (запись в SQLite)
+%%   СУЩНОСТЬ 2 · AskQuestion  — отдаёт результаты RAG агенту (чтение из SQLite)
+%%
+%% Рендер: https://mermaid.live или предпросмотр VS Code (расширение Mermaid)
+%% =====================================================================
+flowchart TB
+
+    %% ================= СУЩНОСТЬ 1: IndexFolder =================
+    subgraph IF["🧩 СУЩНОСТЬ 1 · IndexFolder — получает базу знаний (index_folder)"]
+        direction TB
+        IF0["🤖 Агент вызывает MCP-инструмент<br/>index_folder(folderPath, globPattern='*.txt')"]
+        IF1["RagTools.IndexFolder<br/>Serilog-логирование + тайминг"]
+        IF2["MediatR → IndexFolderRequest<br/>→ IndexerService.IndexAsync"]
+        IF3["FileScanner.Scan<br/>glob-паттерн + рекурсивный обход<br/>+ SHA-256 содержимого файла"]
+        IF4{"Документ уже есть в БД<br/>и хеш совпадает?"}
+        IF5["⏭️ Файл без изменений → пропуск<br/>(unchanged++)<br/>старые данные не трогаем"]
+        IF6["TextFileReader.ReadAllText<br/>→ TextChunker<br/>чанки ~470 токенов, перекрытие 20"]
+        IF7["E5SmallEmbedder (ONNX)<br/>multilingual-e5-small · 384 d<br/>prefix 'passage:' + lowercase + L2"]
+        IF8{"Файл новый или изменённый?"}
+        IF9["🗑️ Удалить старые данные документа:<br/>Embeddings.DeleteByDocumentId<br/>Chunks.DeleteByDocument<br/>(FTS5 чистится триггером chunks_ad)"]
+        IF10["✍️ Транзакция на каждый файл:<br/>Upsert документа (хеш/даты)<br/>+ вставка новых чанков и векторов"]
+        IF11["⚠️ Нюанс: файлы, удалённые из папки,<br/>из базы не удаляются (записи остаются)"]
+    end
+
+    %% ============ База знаний — общая для обеих сущностей ============
+    subgraph DB["🗄️ База знаний · SQLite vectorDb.db"]
+        direction TB
+        DB1[("Documents<br/>метаданные + SHA-256")]
+        DB2[("Chunks + Embeddings<br/>текст + векторы 384 d")]
+        DB3["FTS5 ChunksFts<br/>BM25-индекс<br/>(синхронизация триггерами)"]
+    end
+
+    %% ================= СУЩНОСТЬ 2: AskQuestion =================
+    subgraph AQ["🧩 СУЩНОСТЬ 2 · AskQuestion — отдаёт результаты RAG агенту (ask_question)"]
+        direction TB
+        AQ0["🤖 Агент вызывает MCP-инструмент<br/>ask_question('вопрос')"]
+        AQ1["RagTools.AskQuestion<br/>Serilog-логирование + тайминг"]
+        AQ2["MediatR → AskQuestionQuery<br/>→ CorrectiveRagPipeline.AskAsync"]
+        AQ3["Гибридный поиск HybridSearchService<br/>попытка N (всего до 3: 1 исходная + 2 расширения)"]
+        AQ4["Вектор запроса<br/>E5SmallEmbedder · prefix 'query:' → 384 d"]
+        AQ5["Векторный поиск<br/>перебор всех эмбеддингов → 50 чанков"]
+        AQ6["BM25 · FTS5 MATCH<br/>→ 50 чанков"]
+        AQ7["RRF-слияние (k=60)<br/>→ топ-10 чанков"]
+        AQ8["ChunkGrader · Ollama (qwen2.5:3b)<br/>релевантность: {'relevant': true | false}"]
+        AQ9{"Релевантных чанков ≥ 3?"}
+        AQ10["🏁 AskQuestionResult: отобранные чанки<br/>с метаданными (файл, id, оценки) →<br/>возвращаются агенту, агент формулирует ответ"]
+        AQ11["QueryExpander · Ollama<br/>перефразирование запроса<br/>(максимум 2 расширения)"]
+    end
+
+    %% -------- связи СУЩНОСТИ 1 (запись в базу) --------
+    IF0 --> IF1 --> IF2 --> IF3 --> IF4
+    IF4 -->|"да · хеш совпадает"| IF5
+    IF4 -->|"нет"| IF6
+    IF6 --> IF7 --> IF8
+    IF8 -->|"файл изменён"| IF9
+    IF9 --> IF10
+    IF8 -->|"файл новый"| IF10
+    IF10 -->|"INSERT / UPDATE"| DB1
+    IF10 -->|"INSERT"| DB2
+    DB2 -.->|"текст чанков<br/>(триггеры ai/ad/au)"| DB3
+    IF5 -.->|"пояснение"| IF11
+
+    %% -------- связи СУЩНОСТИ 2 (чтение из базы) --------
+    AQ0 --> AQ1 --> AQ2 --> AQ3
+    AQ3 --> AQ4
+    AQ4 --> AQ5
+    AQ4 --> AQ6
+    DB2 -.->|"эмбеддинги"| AQ5
+    DB3 -.->|"FTS5-индекс"| AQ6
+    AQ5 --> AQ7
+    AQ6 --> AQ7
+    AQ7 --> AQ8 --> AQ9
+    AQ9 -->|"да · ≥ 3"| AQ10
+    AQ9 -->|"нет · < 3"| AQ11
+    AQ11 -->|"расширенный запрос →<br/>повторный гибридный поиск"| AQ3
+
+    %% -------- общий контекст --------
+    IF10 -.->|"наполняет"| DB
+    DB -.->|"источник данных для"| AQ3

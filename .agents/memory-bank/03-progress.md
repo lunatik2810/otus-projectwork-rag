@@ -30,6 +30,10 @@
       по фактическому состоянию кода: стек, схема потоков (индексация / гибридный поиск /
       Corrective RAG), схема БД и триггеры FTS5, особенности multilingual-e5-small,
       MCP-инструменты, конфигурация, Docker, тесты, принятые решения и ограничения.
+- [x] Добавлена [`scheme.mmd`](../../ForTeachers/DifenseProject/scheme.mmd) — Mermaid-диаграмма работы
+      сервера для презентации: индексация (index_folder: чанкинг → эмбеддинги → SQLite/FTS5)
+      и Corrective RAG (ask_question: гибридный поиск BM25+вектор → RRF → грейдинг Ollama →
+      расширение запроса → отдача чанков агенту).
 - [x] Создан [`LICENSE`](../../LICENSE) — лицензия проекта (MIT) + Third-Party Notices:
       лицензии всех NuGet-зависимостей проверены по .nuspec/LICENSE в локальном кэше
       (MediatR/MCP/Serilog/Tokenizers.HuggingFace — Apache-2.0; Microsoft.Data.Sqlite/
